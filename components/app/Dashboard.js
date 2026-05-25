@@ -85,9 +85,11 @@ export default function Dashboard({ navigate }) {
     <div>
       <div className="topbar">
         <div>
-          <div className="page-title">Dashboard</div>
+          <div className="page-title">
+            {state.profile?.name ? `Welcome back, ${state.profile.name.split(' ')[0]}` : 'Dashboard'}
+          </div>
           <div className="page-sub mono" style={{ fontSize: 12 }}>
-            <span className="accent">●</span> Wallet {shortAddr(state.wallet.address)} owns {Object.keys(state.entities).length} entities · Sui Testnet
+            <span className="accent">●</span> {shortAddr(state.wallet.address)} · {Object.keys(state.entities).length} entities · Sui Testnet
           </div>
         </div>
         <div className="row">
@@ -112,7 +114,7 @@ export default function Dashboard({ navigate }) {
           <div className="card-head">
             <div className="row gap-sm">
               <Glyph type={topType} size={14} />
-              <div className="card-title">{typeMeta?.label} · last {topReadings.length}</div>
+              <div className="card-title">{allReadings.length > 0 ? `${typeMeta?.label} · last ${topReadings.length}` : 'Health Chart'}</div>
             </div>
             <div className="row gap-sm">
               {latest && (
@@ -130,15 +132,35 @@ export default function Dashboard({ navigate }) {
               )}
             </div>
           </div>
-          <div style={{ padding: '18px' }}>
-            <LineChart data={topReadings.slice(-30)} normal={typeMeta?.normal} color={typeMeta?.color} height={220} />
-          </div>
-          <div className="card-foot">
-            <span className="muted" style={{ fontSize: 12 }}>Each point is an entity on chain · query via createPublicClient</span>
-            <button className="btn xs ghost" onClick={() => navigate('vault')}>
-              View vault <Glyph type="chevron_right" size={10} />
-            </button>
-          </div>
+          {allReadings.length === 0 ? (
+            <div style={{ padding: '48px 24px', textAlign: 'center' }}>
+              <div style={{ fontSize: 32, marginBottom: 12 }}>📈</div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>No readings yet</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 20, lineHeight: 1.6 }}>
+                Register a device, then log your first reading to see your health trend chart here.
+              </div>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+                <button className="btn" style={{ fontSize: 12 }} onClick={() => navigate('devices')}>
+                  <Glyph type="device" size={12} /> Register device
+                </button>
+                <button className="btn primary" style={{ fontSize: 12 }} onClick={() => navigate('add')}>
+                  <Glyph type="plus" size={12} /> Log reading
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div style={{ padding: '18px' }}>
+                <LineChart data={topReadings.slice(-30)} normal={typeMeta?.normal} color={typeMeta?.color} height={220} />
+              </div>
+              <div className="card-foot">
+                <span className="muted" style={{ fontSize: 12 }}>Each point is a live entity on Arkiv chain</span>
+                <button className="btn xs ghost" onClick={() => navigate('vault')}>
+                  View vault <Glyph type="chevron_right" size={10} />
+                </button>
+              </div>
+            </>
+          )}
         </div>
 
         <div className="card">

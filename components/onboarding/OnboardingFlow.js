@@ -25,6 +25,7 @@ export default function OnboardingFlow() {
   const { state, saveProfile, seedDemo } = useVC();
   const [stepIdx, setStepIdx] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [loadSample, setLoadSample] = useState(false);
 
   // Form fields
   const [name, setName] = useState('');
@@ -68,8 +69,7 @@ export default function OnboardingFlow() {
         heightCm: toHeightCm(heightCm, heightUnit),
         weightKg: toWeightKg(weightKg, weightUnit),
       });
-      // Seed demo data only for brand-new users
-      if (Object.keys(state.entities).length === 0) {
+      if (loadSample) {
         await seedDemo(state.wallet.address);
       }
     } catch (err) {
@@ -202,13 +202,27 @@ export default function OnboardingFlow() {
               ))}
             </div>
 
+            {/* Sample data toggle */}
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', background: 'var(--surface-2)', border: '1px solid var(--hairline)', borderRadius: 8, cursor: 'pointer', marginBottom: 14 }}>
+              <input
+                type="checkbox"
+                checked={loadSample}
+                onChange={e => setLoadSample(e.target.checked)}
+                style={{ width: 16, height: 16, accentColor: 'var(--accent)', cursor: 'pointer' }}
+              />
+              <div>
+                <div style={{ fontSize: 13, color: 'var(--text)', fontWeight: 500 }}>Load 30 days of sample readings</div>
+                <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 2 }}>Pre-fills heart rate, blood pressure, SpO₂ and weight so you can explore all features right away</div>
+              </div>
+            </label>
+
             <button
               className="btn primary"
               style={{ width: '100%', justifyContent: 'center', padding: '14px 20px', fontSize: 15, opacity: saving ? 0.7 : 1 }}
               onClick={handleFinish}
               disabled={saving}
             >
-              {saving ? <><Spinner /> Setting up vault…</> : <>Start My Vault <Glyph type="bolt" size={14} /></>}
+              {saving ? <><Spinner /> {loadSample ? 'Seeding vault…' : 'Setting up vault…'}</> : <>Start My Vault <Glyph type="bolt" size={14} /></>}
             </button>
 
             <div style={{ marginTop: 12, fontSize: 11, color: 'var(--text-faint)', textAlign: 'center', lineHeight: 1.5 }} className="mono">
