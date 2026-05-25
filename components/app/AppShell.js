@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useSuiClientQuery } from '@mysten/dapp-kit';
 import { useVC } from '@/lib/store';
 import Glyph from '@/components/ui/Glyph';
 import Hash from '@/components/ui/Hash';
@@ -37,6 +38,15 @@ const accentMap = {
 
 export default function AppShell() {
   const { state, disconnectWallet } = useVC();
+
+  const { data: balData } = useSuiClientQuery(
+    'getBalance',
+    { owner: state.wallet?.address, coinType: '0x2::sui::SUI' },
+    { enabled: !!state.wallet?.address }
+  );
+  const suiBalance = balData
+    ? (Number(balData.totalBalance) / 1e9).toFixed(4) + ' SUI'
+    : '— SUI';
   const [page, setPage] = useState('dashboard');
   const [readingDetail, setReadingDetail] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
@@ -148,7 +158,7 @@ export default function AppShell() {
               <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }}></div>
               <Hash value={state.wallet.address} n={6} />
             </div>
-            <div className="muted mono" style={{ fontSize: 11, marginTop: 6 }}>{state.wallet.balance}</div>
+            <div className="muted mono" style={{ fontSize: 11, marginTop: 6 }}>{suiBalance}</div>
             <button className="btn xs ghost" style={{ marginTop: 8, width: '100%', justifyContent: 'flex-start' }} onClick={disconnectWallet}>
               Disconnect
             </button>

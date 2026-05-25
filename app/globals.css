@@ -23,8 +23,12 @@
   --r-btn: 8px;
 }
 
-* { box-sizing: border-box; }
+* { box-sizing: border-box; scrollbar-width: thin; scrollbar-color: var(--hairline-strong) transparent; }
 html, body { margin: 0; padding: 0; background: var(--ink); color: var(--text); }
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--hairline-strong); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-faint); }
 body {
   font-family: var(--font-geist-sans, 'Geist', system-ui, -apple-system, sans-serif);
   font-feature-settings: 'cv11','ss01','ss03';

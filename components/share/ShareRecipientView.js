@@ -2,19 +2,56 @@
 
 import { useState, useReducer, useEffect } from 'react';
 import { useVC } from '@/lib/store';
+import { arkivLoadByKey } from '@/lib/arkiv';
 import Glyph from '@/components/ui/Glyph';
 import Hash from '@/components/ui/Hash';
 import Empty from '@/components/ui/Empty';
 
 export default function ShareRecipientView({ shareKey, accessKey }) {
   const { state, READING_TYPES, fmtDate } = useVC();
-  const share = state.entities[shareKey];
   const [, force] = useReducer(x => x + 1, 0);
+  const [chainShare, setChainShare] = useState(null);
+  const [chainEntities, setChainEntities] = useState([]);
+  const [loading, setLoading] = useState(true);
 
+  // Tick countdown every second
   useEffect(() => {
     const t = setInterval(force, 1000);
     return () => clearInterval(t);
   }, []);
+
+  // Try local cache first, then fall back to chain query (enables cross-browser sharing)
+  useEffect(() => {
+    const localShare = state.entities[shareKey];
+    if (localShare) {
+      const localRefs = (localShare.payload?.entityKeys || []).map(k => state.entities[k]).filter(Boolean);
+      setChainShare(localShare);
+      setChainEntities(localRefs);
+      setLoading(false);
+      return;
+    }
+    // Not in local cache — query Arkiv chain (works cross-browser)
+    arkivLoadByKey(shareKey).then(async (share) => {
+      if (!share) { setLoading(false); return; }
+      setChainShare(share);
+      const keys = share.payload?.entityKeys || [];
+      const entities = await Promise.all(keys.map(k => arkivLoadByKey(k)));
+      setChainEntities(entities.filter(Boolean));
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, [shareKey, state.entities]);
+
+  if (loading) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div className="mono faint" style={{ fontSize: 12 }}>Fetching from Arkiv chain…</div>
+        </div>
+      </div>
+    );
+  }
+
+  const share = chainShare;
 
   if (!share) {
     return (
@@ -47,7 +84,7 @@ export default function ShareRecipientView({ shareKey, accessKey }) {
   const mins = Math.floor((remaining % 3600000) / 60000);
   const secs = Math.floor((remaining % 60000) / 1000);
 
-  const entities = (share.payload.entityKeys || []).map(k => state.entities[k]).filter(Boolean);
+  const entities = chainEntities;
   const grantor = share.attributes.find(a => a.key === 'grantedBy')?.value;
   const shareType = share.attributes.find(a => a.key === 'shareType')?.value;
 
@@ -101,7 +138,7 @@ export default function ShareRecipientView({ shareKey, accessKey }) {
                   <div><Glyph type={type} size={16} /></div>
                   <div>
                     <div className="reading-type">{meta?.label}</div>
-                    <div className="mono faint" style={{ fontSize: 11, marginTop: 2 }}>signed by device {e.$creator.slice(0, 10)}…</div>
+                    <div className="mono faint" style={{ fontSize: 11, marginTop: 2 }}>signed by device {String(e.$creator).slice(0, 10)}…</div>
                   </div>
                   <div className="reading-value">{v1}{v2 != null && v2 !== '' ? `/${v2}` : ''}<span className="reading-unit">{meta?.unit}</span></div>
                   <div>{meta?.normal && (v1 >= meta.normal[0] && v1 <= meta.normal[1] ? <span className="pill ok">in range</span> : <span className="pill warn">out of range</span>)}</div>
