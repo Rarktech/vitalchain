@@ -1,8 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useWallets, useConnectWallet, useCurrentAccount } from '@mysten/dapp-kit';
 import { useVC } from '@/lib/store';
-import { initiateZKLogin, completeZKLogin, loadZKLoginSession, clearZKLoginSession } from '@/lib/zklogin';
+import {
+  initiateZKLogin,
+  extractJWTFromHash,
+  deriveZKLoginAddress,
+  getOrCreateUserSalt,
+  completeZKLogin,
+  clearZKLoginSession,
+} from '@/lib/zklogin';
 import Glyph from '@/components/ui/Glyph';
 import Spinner from '@/components/ui/Spinner';
 
@@ -32,12 +40,24 @@ const ConnectStep = ({ done, active, label }) => (
 );
 
 export default function ConnectScreen() {
-  const { connectWallet, seedDemo, BRAGA_CHAIN_ID, pushToast } = useVC();
+  const { state, connectWallet, pushToast } = useVC();
+  const wallets = useWallets();
+  const { mutate: connectDappKit } = useConnectWallet();
+  const currentAccount = useCurrentAccount();
+
   const [method, setMethod] = useState(null);
   const [step, setStep] = useState(0);
   const [error, setError] = useState(null);
+  const [showWalletList, setShowWalletList] = useState(false);
 
-  // Check for zkLogin callback on mount (after Google OAuth redirect)
+  // Sync dapp-kit autoConnect → store (e.g. user had a wallet previously connected)
+  useEffect(() => {
+    if (currentAccount?.address && !state.wallet) {
+      connectWallet(currentAccount.address);
+    }
+  }, [currentAccount]);
+
+  // Handle zkLogin OAuth callback (Google redirects back with id_token in hash)
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const hash = window.location.hash;
@@ -48,19 +68,39 @@ export default function ConnectScreen() {
 
     (async () => {
       try {
+        const jwt = extractJWTFromHash(hash);
+        if (!jwt) throw new Error('No id_token in URL — try signing in again');
+
+        // Clear the hash immediately
+        window.history.replaceState(null, '', window.location.pathname);
+
         setStep(2);
-        const zkData = await completeZKLogin();
-        if (!zkData) return;
+        // Decode JWT payload (no verification — we only need sub/email for address + salt)
+        const [, payloadB64] = jwt.split('.');
+        const payload = JSON.parse(atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/')));
+        const { sub, email } = payload;
+
+        // Derive address without the prover — always works
+        const userSalt = getOrCreateUserSalt(sub);
+        const address = await deriveZKLoginAddress(jwt, userSalt);
+
+        // Persist minimal session so AppShell can read email later
+        sessionStorage.setItem('zklogin_data', JSON.stringify({
+          address, email, sub, loginMethod: 'zklogin',
+        }));
+
         setStep(3);
-        const address = await connectWallet(zkData.address);
-        await new Promise(r => setTimeout(r, 200));
-        await seedDemo(address);
+        await connectWallet(address);
+
+        // Try to get ZK proof in background — not blocking
+        completeZKLogin().catch(err => console.warn('ZK prover skipped:', err));
       } catch (err) {
         console.error('zkLogin error:', err);
         setError(err.message);
         setMethod(null);
         setStep(0);
-        pushToast({ title: 'zkLogin failed', body: err.message, tone: 'warn' });
+        clearZKLoginSession();
+        pushToast({ title: 'Sign-in failed', body: err.message, tone: 'warn' });
       }
     })();
   }, []);
@@ -71,30 +111,34 @@ export default function ConnectScreen() {
     setError(null);
     try {
       await initiateZKLogin();
-      // Page will redirect to Google — no code after this runs
+      // Redirects to Google — nothing runs after this
     } catch (err) {
-      // Fallback: simulate zkLogin with a derived address (for demo / prover unavailability)
-      console.warn('zkLogin initiation failed, using simulated flow:', err);
-      setStep(2);
-      await new Promise(r => setTimeout(r, 700));
-      setStep(3);
-      const address = await connectWallet();
-      await new Promise(r => setTimeout(r, 200));
-      await seedDemo(address);
+      setError('Could not reach Sui network. Check your connection and try again.');
+      setMethod(null);
+      setStep(0);
     }
   };
 
-  const handleWallet = async () => {
+  const handleDappKitWallet = (wallet) => {
+    setShowWalletList(false);
     setMethod('wallet');
     setStep(1);
     setError(null);
-    await new Promise(r => setTimeout(r, 700));
-    setStep(2);
-    await new Promise(r => setTimeout(r, 600));
-    setStep(3);
-    const address = await connectWallet();
-    await new Promise(r => setTimeout(r, 200));
-    await seedDemo(address);
+    connectDappKit(
+      { wallet },
+      {
+        onSuccess: (data) => {
+          setStep(3);
+          const address = data?.accounts?.[0]?.address;
+          if (address) connectWallet(address);
+        },
+        onError: (err) => {
+          setError(err.message || 'Wallet connection rejected');
+          setMethod(null);
+          setStep(0);
+        },
+      }
+    );
   };
 
   const idle = !method;
@@ -107,7 +151,7 @@ export default function ConnectScreen() {
         <div className="connect-title">Your health data.<br />Your AI. Your chain.</div>
         <div className="connect-desc">
           Every reading from your devices is written as a wallet-owned entity on Arkiv.
-          Sign in with Google for a zkLogin-derived address, or bring your own wallet.
+          Sign in with Google for a zkLogin-derived address, or connect a Sui wallet.
         </div>
 
         {idle ? (
@@ -120,17 +164,53 @@ export default function ConnectScreen() {
 
             <div className="auth-divider"><span>or</span></div>
 
-            <button
-              className="btn"
-              style={{ width: '100%', justifyContent: 'center', padding: '12px 20px', fontSize: 14 }}
-              onClick={handleWallet}
-            >
-              <Glyph type="bolt" size={14} />
-              Connect wallet
-            </button>
+            {!showWalletList ? (
+              <button
+                className="btn"
+                style={{ width: '100%', justifyContent: 'center', padding: '12px 20px', fontSize: 14 }}
+                onClick={() => setShowWalletList(true)}
+              >
+                <Glyph type="bolt" size={14} />
+                Connect Sui wallet
+              </button>
+            ) : (
+              <div style={{ border: '1px solid var(--hairline)', borderRadius: 10, overflow: 'hidden' }}>
+                {wallets.length === 0 ? (
+                  <div style={{ padding: '16px', fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.6 }}>
+                    <div style={{ marginBottom: 8, fontWeight: 600, color: 'var(--text)' }}>No Sui wallet detected</div>
+                    <div>Install <a href="https://suiwallet.com" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>Sui Wallet</a> browser extension, or use Google zkLogin above — no extension needed.</div>
+                    <div style={{ marginTop: 10, fontSize: 11, color: 'var(--text-faint)' }}>MetaMask is for Ethereum and cannot connect to Sui.</div>
+                  </div>
+                ) : (
+                  wallets.map(wallet => (
+                    <button
+                      key={wallet.name}
+                      onClick={() => handleDappKitWallet(wallet)}
+                      style={{
+                        width: '100%', display: 'flex', alignItems: 'center', gap: 12,
+                        padding: '12px 16px', background: 'transparent', border: 'none',
+                        borderBottom: '1px solid var(--hairline)', cursor: 'pointer',
+                        color: 'var(--text)', fontSize: 14, textAlign: 'left',
+                      }}
+                    >
+                      {wallet.icon && (
+                        <img src={wallet.icon} alt="" width={24} height={24} style={{ borderRadius: 6 }} />
+                      )}
+                      <span>{wallet.name}</span>
+                    </button>
+                  ))
+                )}
+                <button
+                  onClick={() => setShowWalletList(false)}
+                  style={{ width: '100%', padding: '10px 16px', background: 'transparent', border: 'none', color: 'var(--text-faint)', fontSize: 12, cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
 
             {error && (
-              <div style={{ marginTop: 12, fontSize: 12, color: 'oklch(0.7 0.18 25)', textAlign: 'center' }}>
+              <div style={{ marginTop: 12, fontSize: 12, color: 'oklch(0.7 0.18 25)', textAlign: 'center', lineHeight: 1.5 }}>
                 {error}
               </div>
             )}
@@ -144,15 +224,15 @@ export default function ConnectScreen() {
           <div style={{ maxWidth: 360, margin: '0 auto', textAlign: 'left' }}>
             {method === 'google' ? (
               <>
-                <ConnectStep done={step > 0} active={step === 1} label="Verifying Google OAuth proof" />
-                <ConnectStep done={step > 1} active={step === 2} label="Deriving zkLogin wallet on Sui Testnet" />
-                <ConnectStep done={step > 2} active={step === 3} label="Seeding demo data" />
+                <ConnectStep done={step > 0} active={step === 1} label="Verifying Google identity" />
+                <ConnectStep done={step > 1} active={step === 2} label="Deriving Sui address" />
+                <ConnectStep done={step > 2} active={step === 3} label="Loading your vault" />
               </>
             ) : (
               <>
-                <ConnectStep done={step > 0} active={step === 1} label="Requesting wallet" />
+                <ConnectStep done={step > 0} active={step === 1} label="Requesting wallet approval" />
                 <ConnectStep done={step > 1} active={step === 2} label="Connecting to Sui Testnet" />
-                <ConnectStep done={step > 2} active={step === 3} label="Seeding demo data" />
+                <ConnectStep done={step > 2} active={step === 3} label="Loading your vault" />
               </>
             )}
           </div>

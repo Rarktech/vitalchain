@@ -1,5 +1,6 @@
 'use client';
 
+import { useSuiClientQuery } from '@mysten/dapp-kit';
 import { useVC } from '@/lib/store';
 import Glyph from '@/components/ui/Glyph';
 import LineChart from '@/components/ui/LineChart';
@@ -46,6 +47,15 @@ function ActivityFeed({ limit = 10 }) {
 
 export default function Dashboard({ navigate }) {
   const { state, queryEntities, READING_TYPES, shortAddr, BRAGA_CHAIN_ID } = useVC();
+
+  const { data: balData } = useSuiClientQuery(
+    'getBalance',
+    { owner: state.wallet?.address, coinType: '0x2::sui::SUI' },
+    { enabled: !!state.wallet?.address }
+  );
+  const suiBalance = balData
+    ? (Number(balData.totalBalance) / 1e9).toFixed(4) + ' SUI'
+    : state.wallet?.balance || '— SUI';
   const allReadings = queryEntities({ entityType: 'biometric_reading', $owner: state.wallet.address });
   const analyses = queryEntities({ entityType: 'ai_analysis', $owner: state.wallet.address });
   const shares = queryEntities({ entityType: 'data_share', $owner: state.wallet.address });
@@ -94,7 +104,7 @@ export default function Dashboard({ navigate }) {
         <Stat label="Readings on-chain" value={allReadings.length} sub={`${devices.length} devices · all $owner = you`} />
         <Stat label="AI analyses" value={analyses.length} sub={analyses.length > 0 ? 'AI insights are wallet-owned' : 'Ask the AI a question'} />
         <Stat label="Active shares" value={shares.length} sub={shares.length > 0 ? 'Auto-expire at protocol layer' : 'Time-limited by Arkiv expiresIn'} />
-        <Stat label="Encrypted" value={`${allReadings.filter(r => r.attributes.find(a => a.key === 'encrypted')?.value === 1).length}/${allReadings.length}`} sub="AES-GCM 256-bit client-side" mono />
+        <Stat label="SUI Balance" value={suiBalance} sub="Sui Testnet · live" mono />
       </div>
 
       <div className="grid-2 mt-6">
