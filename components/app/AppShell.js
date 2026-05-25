@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { useSuiClientQuery } from '@mysten/dapp-kit';
+import { useSuiClientQuery, useDisconnectWallet } from '@mysten/dapp-kit';
 import { useVC } from '@/lib/store';
+import { clearZKLoginSession } from '@/lib/zklogin';
 import Glyph from '@/components/ui/Glyph';
 import Hash from '@/components/ui/Hash';
 import Toasts from '@/components/ui/Toasts';
@@ -38,6 +39,13 @@ const accentMap = {
 
 export default function AppShell() {
   const { state, disconnectWallet } = useVC();
+  const { mutate: dappkitDisconnect } = useDisconnectWallet();
+
+  const handleDisconnect = () => {
+    disconnectWallet();
+    dappkitDisconnect();
+    clearZKLoginSession();
+  };
 
   const { data: balData } = useSuiClientQuery(
     'getBalance',
@@ -159,7 +167,7 @@ export default function AppShell() {
               <Hash value={state.wallet.address} n={6} />
             </div>
             <div className="muted mono" style={{ fontSize: 11, marginTop: 6 }}>{suiBalance}</div>
-            <button className="btn xs ghost" style={{ marginTop: 8, width: '100%', justifyContent: 'flex-start' }} onClick={disconnectWallet}>
+            <button className="btn xs ghost" style={{ marginTop: 8, width: '100%', justifyContent: 'flex-start' }} onClick={handleDisconnect}>
               Disconnect
             </button>
           </div>
