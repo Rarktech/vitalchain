@@ -149,12 +149,23 @@ export default function InsightsScreen() {
       return `[entity:${r.key}] ${new Date(r.at).toISOString().slice(0, 10)}: ${m?.label || r.type} ${vstr} ${m?.unit || ''}`;
     }).join('\n');
 
+    // Build memory context from the 2 most recent past analyses
+    const recentAnalyses = analyses.slice(0, 2);
+    const memoryBlock = recentAnalyses.length > 0
+      ? `Prior analyses on this user's data (for context only — do not repeat verbatim):\n` +
+        recentAnalyses.map((a, i) => {
+          const ts = a.attributes.find(x => x.key === 'generatedAt')?.value;
+          const date = ts ? new Date(ts).toISOString().slice(0, 10) : 'unknown';
+          return `[Analysis ${i + 1} — ${date}]\nQ: ${a.payload?.question}\nSummary: ${(a.payload?.analysis || '').slice(0, 300)}`;
+        }).join('\n\n')
+      : '';
+
     const prompt = `You are a careful health-data analyst. The user has asked: "${qq}".
-Their last ${decryptedRows.length} readings (oldest-first), each prefixed with its Arkiv entity key:
+${memoryBlock ? memoryBlock + '\n\n' : ''}Their last ${decryptedRows.length} readings (oldest-first), each prefixed with its Arkiv entity key:
 ${context.split('\n').reverse().join('\n')}
 
 When you reference a specific reading in your response, cite its entity key in brackets, e.g. [entity:0xabc123].
-Respond in <=160 words. Be specific with numbers. End with EXACTLY one line: "TREND: improving" or "TREND: stable" or "TREND: worsening". Then a second line: "RECS: " followed by 1-3 short comma-separated recommendations. Do not give a medical diagnosis; suggest discussing with a clinician when appropriate.`;
+Respond in <=200 words. Be specific with numbers. End with EXACTLY one line: "TREND: improving" or "TREND: stable" or "TREND: worsening". Then a second line: "RECS: " followed by 1-3 short comma-separated recommendations. Do not give a medical diagnosis; suggest discussing with a clinician when appropriate.`;
 
     let analysisText;
     try {
