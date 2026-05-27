@@ -1,4 +1,5 @@
 <div align="center">
+<img width="1810" height="824" alt="20260527-1902-14 8031138" src="https://github.com/user-attachments/assets/6913f490-7b52-47f9-94f4-ee91a7be6f81" />
 
 <br/>
 
@@ -39,6 +40,8 @@ VitalChain is a **web3-native personal health intelligence platform** where ever
 VitalChain is the only submission covering all three challenge themes simultaneously in a single coherent product.
 
 ---
+<img width="1826" height="814" alt="20260527-1946-35 1260243" src="https://github.com/user-attachments/assets/cbdd2902-166d-4a6d-a29d-77b88425ff4d" />
+(authentication page)
 
 ## 🔴 The Problem
 
@@ -79,6 +82,8 @@ You get a dashboard                       ↓
 | Auditability | Every entity has a key visible in the Braga explorer — independently verifiable |
 
 ---
+<img width="1828" height="824" alt="20260527-1941-53 5801206" src="https://github.com/user-attachments/assets/2f1cb651-3376-4356-914a-0fca782c89f1" />
+(dashboard overview)
 
 ## 🏗️ Arkiv Architecture
 
@@ -180,7 +185,8 @@ $owner:    patient address
 ```
 
 ---
-
+<img width="1832" height="772" alt="20260527-1931-51 3403929" src="https://github.com/user-attachments/assets/c2d41b99-529d-4caf-8683-ed7c5d4e97f8" />
+(Share your biodata)
 ## 🔐 Privacy Architecture
 
 Structure is public. Content is private. That is the intentional design.
@@ -218,7 +224,8 @@ Structure is public. Content is private. That is the intentional design.
 | **Deployment** | Vercel |
 
 ---
-
+<img width="1832" height="812" alt="20260527-1936-41 6516832" src="https://github.com/user-attachments/assets/60bf182e-7d76-488a-9dfa-d5d2f58bc8a3" />
+(Log a new reading)
 ## 🗺️ App Routes
 
 | Route | Description |
@@ -239,6 +246,8 @@ Structure is public. Content is private. That is the intentional design.
 | **Independent Verify** | Sidebar → "Independent Verify" — copy-paste SDK queries |
 
 ---
+<img width="1834" height="822" alt="20260527-1939-26 2178470" src="https://github.com/user-attachments/assets/121a4dec-1db7-45cd-b6af-5a1f3e3ae1a8" />
+(add a new device)
 
 ## ⚙️ Local Setup
 
