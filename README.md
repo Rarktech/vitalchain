@@ -1,7 +1,8 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/9a811444-dc39-44c2-a175-bdd578caf850" />
 
-<img width="1920" height="1440" alt="image" src="https://github.com/user-attachments/assets/b5575ac0-2f28-4564-a9a7-4b829b5b7e06" />
+
 
 
 
