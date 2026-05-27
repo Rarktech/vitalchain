@@ -146,19 +146,27 @@ export default function InsightsScreen() {
     const context = decryptedRows.map(r => {
       const m = READING_TYPES[r.type];
       const vstr = r.v2 != null && r.v2 !== '' ? `${r.v1}/${r.v2}` : r.v1;
-      return `${new Date(r.at).toISOString().slice(0, 10)}: ${m?.label || r.type} ${vstr} ${m?.unit || ''}`;
+      return `[entity:${r.key}] ${new Date(r.at).toISOString().slice(0, 10)}: ${m?.label || r.type} ${vstr} ${m?.unit || ''}`;
     }).join('\n');
 
     const prompt = `You are a careful health-data analyst. The user has asked: "${qq}".
-Their last ${decryptedRows.length} readings, oldest-first:
+Their last ${decryptedRows.length} readings (oldest-first), each prefixed with its Arkiv entity key:
 ${context.split('\n').reverse().join('\n')}
 
-Respond in <=140 words. Be specific with numbers. End with EXACTLY one line: "TREND: improving" or "TREND: stable" or "TREND: worsening". Then a second line: "RECS: " followed by 1-3 short comma-separated recommendations. Do not give a medical diagnosis; suggest discussing with a clinician when appropriate.`;
+When you reference a specific reading in your response, cite its entity key in brackets, e.g. [entity:0xabc123].
+Respond in <=160 words. Be specific with numbers. End with EXACTLY one line: "TREND: improving" or "TREND: stable" or "TREND: worsening". Then a second line: "RECS: " followed by 1-3 short comma-separated recommendations. Do not give a medical diagnosis; suggest discussing with a clinician when appropriate.`;
 
     let analysisText;
     try {
-      analysisText = await window.claude?.complete(prompt);
-      if (!analysisText || /<!DOCTYPE/i.test(analysisText) || analysisText.length > 4000) throw new Error('bad response');
+      const res = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt }),
+      });
+      if (!res.ok) throw new Error(`AI route error ${res.status}`);
+      const data = await res.json();
+      if (!data.text || data.text.length < 10) throw new Error('empty response');
+      analysisText = data.text;
     } catch {
       analysisText = generateLocalFallback(qq, decryptedRows, READING_TYPES);
     }
@@ -176,7 +184,7 @@ Respond in <=140 words. Be specific with numbers. End with EXACTLY one line: "TR
       trend,
       recommendations: recs,
       readingKeys: decryptedRows.map(r => r.key),
-      model: 'claude-haiku-4-5',
+      model: 'gemini-2.5-flash',
     });
 
     setWorking(false);
@@ -199,7 +207,7 @@ Respond in <=140 words. Be specific with numbers. End with EXACTLY one line: "TR
             <Glyph type="sparkle" size={14} />
             <div style={{ fontWeight: 500, fontSize: 14 }}>Ask about your health data</div>
             <div className="spacer" />
-            <span className="chip mono">model · claude-haiku-4-5</span>
+            <span className="chip mono">model · gemini-2.5-flash</span>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <input
@@ -225,7 +233,7 @@ Respond in <=140 words. Be specific with numbers. End with EXACTLY one line: "TR
             <div style={{ marginTop: 16, padding: '14px 16px', background: 'var(--ink)', border: '1px solid var(--hairline)', borderRadius: 8, fontSize: 12 }}>
               <PipelineStep done={['decrypt', 'ai', 'write'].includes(stage)} active={stage === 'query'} label={`buildQuery → ownedBy(${state.wallet.address.slice(0, 10)}…) → fetch(30)`} />
               <PipelineStep done={['ai', 'write'].includes(stage)} active={stage === 'decrypt'} label="AES-GCM decrypt encrypted payloads locally" />
-              <PipelineStep done={['write'].includes(stage)} active={stage === 'ai'} label="Claude haiku-4-5 inference" />
+              <PipelineStep done={['write'].includes(stage)} active={stage === 'ai'} label="Gemini 2.5 Flash inference" />
               <PipelineStep done={false} active={stage === 'write'} label="createEntity ai_analysis → $owner = your wallet" />
             </div>
           )}

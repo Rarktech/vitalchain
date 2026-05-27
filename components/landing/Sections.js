@@ -285,7 +285,7 @@ export function Stack() {
           ['Blockchain', 'Sui Testnet · zkLogin'],
           ['Wallet', '@mysten/dapp-kit'],
           ['Crypto', 'Web Crypto · AES-GCM'],
-          ['AI', 'Claude Haiku · claude-haiku-4-5'],
+          ['AI', 'Gemini 2.5 Flash · entity-cited'],
           ['Charts', 'SVG Sparklines'],
           ['Network', 'Sui Testnet · PROVER_URL'],
           ['License', 'MIT'],
